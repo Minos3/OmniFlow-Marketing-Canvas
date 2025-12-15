@@ -99,13 +99,22 @@ const CustomNode = ({ id, data, selected }: NodeProps<NodeData>) => {
           hover:shadow-md
         `}
       >
-        {/* Input Handle (Triggers don't have inputs) */}
+        {/* Inputs: Top and Left */}
         {!isTrigger && (
-          <Handle
-            type="target"
-            position={Position.Top}
-            className="!h-3 !w-3 !bg-slate-400"
-          />
+          <>
+            <Handle
+              type="target"
+              position={Position.Top}
+              id="top"
+              className="!h-3 !w-3 !bg-slate-400"
+            />
+            <Handle
+              type="target"
+              position={Position.Left}
+              id="left"
+              className="!h-3 !w-3 !bg-slate-400"
+            />
+          </>
         )}
 
         <div className="flex items-center gap-3">
@@ -157,10 +166,17 @@ const CustomNode = ({ id, data, selected }: NodeProps<NodeData>) => {
           </div>
         )}
 
-        {/* Output Handle */}
+        {/* Outputs: Bottom and Right */}
         <Handle
           type="source"
           position={Position.Bottom}
+          id="bottom"
+          className="!h-3 !w-3 !bg-slate-400"
+        />
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="right"
           className="!h-3 !w-3 !bg-slate-400"
         />
       </div>
