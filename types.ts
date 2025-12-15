@@ -58,6 +58,7 @@ export interface ScenarioTemplate {
   name: string;
   description: string;
   createdAt: string;
+  creator: string;
   status: 'active' | 'paused' | 'draft';
   metrics: {
     conversionRate: string;

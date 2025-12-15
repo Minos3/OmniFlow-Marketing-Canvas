@@ -25,7 +25,8 @@ import {
     ArrowRight, ChevronLeft, GitFork, Calendar, BarChart3, 
     MoreHorizontal, Edit3, Sparkles, UserPlus, ShoppingCart, 
     UserX, Gem, Check, X, Loader2, Cake, Megaphone, PackageCheck,
-    AlertTriangle, ShieldCheck, Clock, MousePointerClick, Timer, Sliders, Zap
+    AlertTriangle, ShieldCheck, Clock, MousePointerClick, Timer, Sliders, Zap,
+    Search, Filter, User
 } from 'lucide-react';
 
 // Register custom node types
@@ -514,8 +515,34 @@ const CreateCampaignWizard = ({
 
 // --- Sub-component: Dashboard (Landing Page) ---
 const Dashboard = ({ onSelectScenario, onCreateNew }: { onSelectScenario: (id: string | null) => void, onCreateNew: () => void }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [creatorFilter, setCreatorFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [analyzingScenarioId, setAnalyzingScenarioId] = useState<string | null>(null);
+
+  const filteredScenarios = SCENARIOS.filter(scenario => {
+      const typeLabel = scenario.name.includes('大促') ? 'scheduled_single' : scenario.name.includes('培育') ? 'scheduled_recurring' : 'trigger_behavior';
+      
+      const matchesSearch = scenario.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = typeFilter === 'all' || typeLabel === typeFilter;
+      const matchesStatus = statusFilter === 'all' || scenario.status === statusFilter;
+      const matchesCreator = scenario.creator.toLowerCase().includes(creatorFilter.toLowerCase());
+      const matchesDate = dateFilter === '' || scenario.createdAt.includes(dateFilter);
+
+      return matchesSearch && matchesType && matchesStatus && matchesCreator && matchesDate;
+  });
+
   return (
     <div className="min-h-screen bg-slate-50 p-8">
+      {analyzingScenarioId && (
+          <CanvasAnalytics 
+            onClose={() => setAnalyzingScenarioId(null)} 
+            scenarioName={SCENARIOS.find(s => s.id === analyzingScenarioId)?.name} 
+          />
+      )}
+
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 flex items-center justify-between">
           <div>
@@ -530,6 +557,69 @@ const Dashboard = ({ onSelectScenario, onCreateNew }: { onSelectScenario: (id: s
           </button>
         </div>
 
+        {/* Filters */}
+        <div className="bg-white rounded-xl border border-slate-200 p-4 mb-6 shadow-sm">
+             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                 <div className="relative">
+                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                     <input 
+                        type="text" 
+                        placeholder="搜索活动名称..." 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-slate-900 placeholder:text-slate-400"
+                     />
+                 </div>
+                 
+                 <div>
+                     <select 
+                        value={typeFilter}
+                        onChange={(e) => setTypeFilter(e.target.value)}
+                        className="w-full py-2 px-3 rounded-lg border border-slate-300 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-slate-600"
+                     >
+                         <option value="all">所有类型</option>
+                         <option value="scheduled_single">定时型 - 单次</option>
+                         <option value="scheduled_recurring">定时型 - 周期</option>
+                         <option value="trigger_behavior">触发型 - 用户行为</option>
+                     </select>
+                 </div>
+
+                 <div>
+                     <select 
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="w-full py-2 px-3 rounded-lg border border-slate-300 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-slate-600"
+                     >
+                         <option value="all">所有状态</option>
+                         <option value="active">运行中</option>
+                         <option value="paused">已暂停</option>
+                         <option value="draft">草稿</option>
+                     </select>
+                 </div>
+                 
+                 <div className="relative">
+                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                     <input 
+                        type="text" 
+                        placeholder="搜索创建人..." 
+                        value={creatorFilter}
+                        onChange={(e) => setCreatorFilter(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-slate-900 placeholder:text-slate-400"
+                     />
+                 </div>
+
+                 <div className="relative">
+                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                     <input 
+                        type="date" 
+                        value={dateFilter}
+                        onChange={(e) => setDateFilter(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-slate-900 placeholder:text-slate-400"
+                     />
+                 </div>
+             </div>
+        </div>
+
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <table className="w-full text-left border-collapse">
                 <thead>
@@ -538,12 +628,13 @@ const Dashboard = ({ onSelectScenario, onCreateNew }: { onSelectScenario: (id: s
                         <th className="px-6 py-4">类型</th>
                         <th className="px-6 py-4">状态</th>
                         <th className="px-6 py-4">创建时间</th>
+                        <th className="px-6 py-4">创建人</th>
                         <th className="px-6 py-4">核心指标 (转化率/营收)</th>
                         <th className="px-6 py-4 text-right">操作</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                    {SCENARIOS.map((scenario) => {
+                    {filteredScenarios.length > 0 ? filteredScenarios.map((scenario) => {
                         // Status Badge Logic
                         let statusColor = 'bg-slate-100 text-slate-600';
                         let statusText = '草稿';
@@ -567,7 +658,7 @@ const Dashboard = ({ onSelectScenario, onCreateNew }: { onSelectScenario: (id: s
                                         </div>
                                         <div>
                                             <div className="font-bold text-slate-900 text-sm">{scenario.name}</div>
-                                            <div className="text-xs text-slate-500 max-w-[280px] truncate mt-0.5">{scenario.description}</div>
+                                            <div className="text-xs text-slate-500 max-w-[200px] truncate mt-0.5">{scenario.description}</div>
                                         </div>
                                     </div>
                                 </td>
@@ -588,6 +679,12 @@ const Dashboard = ({ onSelectScenario, onCreateNew }: { onSelectScenario: (id: s
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">
+                                    <div className="flex items-center gap-2 text-sm text-slate-600">
+                                        <User className="h-3.5 w-3.5 text-slate-400" />
+                                        {scenario.creator}
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center gap-2 text-xs">
                                             <span className="text-slate-500">转化率:</span>
@@ -600,17 +697,32 @@ const Dashboard = ({ onSelectScenario, onCreateNew }: { onSelectScenario: (id: s
                                     </div>
                                 </td>
                                 <td className="px-6 py-4 text-right">
-                                    <button 
-                                        onClick={() => onSelectScenario(scenario.id)}
-                                        className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all"
-                                    >
-                                        <Edit3 className="h-3.5 w-3.5 mr-1.5" />
-                                        编辑
-                                    </button>
+                                    <div className="flex items-center justify-end gap-2">
+                                        <button 
+                                            onClick={() => setAnalyzingScenarioId(scenario.id)}
+                                            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200 transition-all"
+                                            title="数据分析"
+                                        >
+                                            <BarChart3 className="h-3.5 w-3.5" />
+                                        </button>
+                                        <button 
+                                            onClick={() => onSelectScenario(scenario.id)}
+                                            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all"
+                                        >
+                                            <Edit3 className="h-3.5 w-3.5 mr-1.5" />
+                                            编辑
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         );
-                    })}
+                    }) : (
+                        <tr>
+                            <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
+                                没有找到匹配的营销活动。
+                            </td>
+                        </tr>
+                    )}
                 </tbody>
             </table>
         </div>
