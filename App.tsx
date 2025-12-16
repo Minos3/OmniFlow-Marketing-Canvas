@@ -56,6 +56,8 @@ const generateTemplate = (audienceType: string): { nodes: AppNode[], edges: AppE
         target,
         label,
         type: 'smoothstep',
+        sourceHandle: 'bottom',
+        targetHandle: 'top',
         markerEnd: { type: MarkerType.ArrowClosed, color: '#94a3b8' },
         style: { stroke: '#94a3b8', strokeWidth: 2 },
     });
@@ -85,7 +87,7 @@ const generateTemplate = (audienceType: string): { nodes: AppNode[], edges: AppE
 
         edges.push(createEdge(n1, n2));
         edges.push(createEdge(n2, n3));
-        edges.push(createEdge(n3, n4, '否 (低客单)'));
+        edges.push({ ...createEdge(n3, n4, '否 (低客单)'), targetHandle: 'top' }); // Manually override if needed, but 'top' is default
         edges.push(createEdge(n3, n5, '否 (高客单)'));
 
     } else if (audienceType === 'vip') {

@@ -51,8 +51,23 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ selectedNode, onClose, onUpda
         // Auto-generate subLabel for visualization
         if (conditions.length > 0) {
             const f = conditions[0];
-            const fieldMap: Record<string, string> = { total_spent: '消费', order_count: '订单数', member_level: '等级', cart_total: '加购额' };
-            updates.subLabel = `${fieldMap[f.field] || f.field} ${f.operator} ${f.value}` + (conditions.length > 1 ? ` (+${conditions.length - 1})` : '');
+            const fieldMap: Record<string, string> = { 
+                total_spent: '消费', 
+                order_count: '订单数', 
+                member_level: '等级', 
+                cart_total: '加购额',
+                last_pay_time: '支付时间',
+                points: '积分'
+            };
+            
+            let displayValue = f.value;
+            // Map values to readable text
+            if (f.field === 'member_level') {
+                const levelMap: Record<string, string> = { regular: '普通', silver: '白银', gold: '黄金', diamond: '钻石' };
+                displayValue = levelMap[f.value] || f.value;
+            }
+            
+            updates.subLabel = `${fieldMap[f.field] || f.field} ${f.operator} ${displayValue}` + (conditions.length > 1 ? ` (+${conditions.length - 1})` : '');
         } else {
             updates.subLabel = '无过滤条件';
         }
@@ -79,7 +94,17 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ selectedNode, onClose, onUpda
   };
 
   const updateCondition = (id: number, field: string, value: any) => {
-      setConditions(conditions.map(c => c.id === id ? { ...c, [field]: value } : c));
+      // If changing field, reset value to avoid type mismatch (e.g. date string in number input)
+      const prevField = conditions.find(c => c.id === id)?.field;
+      let newValue = value;
+      if (field === 'field' && value !== prevField) {
+          newValue = value; // Reset value logic could go here, but strict clearing might be annoying.
+          // For simplicity, we just update the field. The input type will change.
+          // Ideally we might clear 'value' if switching types, but let's keep it simple.
+          setConditions(conditions.map(c => c.id === id ? { ...c, [field]: value, value: '' } : c));
+      } else {
+          setConditions(conditions.map(c => c.id === id ? { ...c, [field]: value } : c));
+      }
   };
 
   const removeCondition = (id: number) => {
@@ -95,6 +120,60 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ selectedNode, onClose, onUpda
           ))}
       </div>
   );
+
+  const renderConditionValueInput = (cond: any) => {
+      const numericFields = ['total_spent', 'order_count', 'points', 'cart_total', 'visit_count'];
+      
+      if (cond.field === 'member_level') {
+          return (
+              <select 
+                  value={cond.value}
+                  onChange={(e) => updateCondition(cond.id, 'value', e.target.value)}
+                  className="flex-1 text-xs rounded border border-slate-300 p-1.5 bg-white text-slate-900 focus:ring-1 focus:ring-indigo-500"
+              >
+                  <option value="">选择会员等级...</option>
+                  <option value="regular">普通会员 (Regular)</option>
+                  <option value="silver">白银会员 (Silver)</option>
+                  <option value="gold">黄金会员 (Gold)</option>
+                  <option value="diamond">钻石会员 (Diamond)</option>
+              </select>
+          );
+      }
+      
+      if (cond.field === 'last_pay_time') {
+           return (
+              <input 
+                  type="date" 
+                  value={cond.value}
+                  onChange={(e) => updateCondition(cond.id, 'value', e.target.value)}
+                  className="flex-1 text-xs rounded border border-slate-300 p-1.5 bg-white text-slate-900 focus:ring-1 focus:ring-indigo-500"
+              />
+           );
+      }
+
+      if (numericFields.includes(cond.field)) {
+          return (
+              <input 
+                  type="number" 
+                  value={cond.value}
+                  onChange={(e) => updateCondition(cond.id, 'value', e.target.value)}
+                  className="flex-1 text-xs rounded border border-slate-300 p-1.5 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-1 focus:ring-indigo-500"
+                  placeholder="输入数值..."
+              />
+          );
+      }
+
+      // Default text input
+      return (
+          <input 
+              type="text" 
+              value={cond.value}
+              onChange={(e) => updateCondition(cond.id, 'value', e.target.value)}
+              className="flex-1 text-xs rounded border border-slate-300 p-1.5 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-1 focus:ring-indigo-500"
+              placeholder="输入值..."
+          />
+      );
+  };
 
   const renderSpecificConfig = () => {
     const { type, subtype } = selectedNode.data;
@@ -146,7 +225,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ selectedNode, onClose, onUpda
                                     <select 
                                         value={cond.operator}
                                         onChange={(e) => updateCondition(cond.id, 'operator', e.target.value)}
-                                        className="w-1/3 text-xs rounded border border-slate-300 p-1.5 bg-white text-slate-900"
+                                        className="w-1/3 text-xs rounded border border-slate-300 p-1.5 bg-white text-slate-900 focus:ring-1 focus:ring-indigo-500"
                                     >
                                         <option value=">">大于</option>
                                         <option value="<">小于</option>
@@ -154,13 +233,8 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ selectedNode, onClose, onUpda
                                         <option value="!=">不等于</option>
                                         <option value="contains">包含</option>
                                     </select>
-                                    <input 
-                                        type="text" 
-                                        value={cond.value}
-                                        onChange={(e) => updateCondition(cond.id, 'value', e.target.value)}
-                                        className="flex-1 text-xs rounded border border-slate-300 p-1.5 bg-white text-slate-900 placeholder:text-slate-400"
-                                        placeholder="输入值..."
-                                    />
+                                    
+                                    {renderConditionValueInput(cond)}
                                 </div>
                             </div>
                         </div>
@@ -225,18 +299,37 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ selectedNode, onClose, onUpda
         return (
             <div className="space-y-4">
                 <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1">推荐算法策略</label>
-                    <select className="w-full rounded-md border border-slate-300 p-2 text-sm bg-white text-slate-900 focus:ring-indigo-500 focus:border-indigo-500">
-                        <option>猜你喜欢 (协同过滤)</option>
-                        <option>买了又买 (关联规则)</option>
-                        <option>新品优先</option>
-                        <option>高毛利优先</option>
-                        <option>高奢配件 (Cross-sell)</option>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">推荐场景</label>
+                     <select className="w-full rounded-md border border-slate-300 p-2 text-sm bg-white text-slate-900 focus:ring-indigo-500 focus:border-indigo-500">
+                        <option>首页猜你喜欢</option>
+                        <option>购物车凑单推荐</option>
+                        <option>支付成功页推荐</option>
+                        <option>新品上市推广</option>
                     </select>
                 </div>
-                 <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1">推荐商品数量</label>
-                    <input type="number" className="w-full rounded-md border border-slate-300 p-2 text-sm bg-white text-slate-900 placeholder:text-slate-400" placeholder="4" defaultValue={4} />
+                <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">推荐算法策略</label>
+                    <select className="w-full rounded-md border border-slate-300 p-2 text-sm bg-white text-slate-900 focus:ring-indigo-500 focus:border-indigo-500">
+                        <option>协同过滤 (User-based CF)</option>
+                        <option>关联规则 (买了又买)</option>
+                        <option>基于内容 (Content-based)</option>
+                        <option>高毛利优先</option>
+                        <option>高库存优先</option>
+                    </select>
+                </div>
+                 <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className="block text-xs font-medium text-slate-500 mb-1">推荐数量</label>
+                        <input type="number" className="w-full rounded-md border border-slate-300 p-2 text-sm bg-white text-slate-900 placeholder:text-slate-400" placeholder="4" defaultValue={4} />
+                    </div>
+                     <div>
+                        <label className="block text-xs font-medium text-slate-500 mb-1">去重策略</label>
+                        <select className="w-full rounded-md border border-slate-300 p-2 text-sm bg-white text-slate-900 focus:ring-indigo-500 focus:border-indigo-500">
+                            <option>过滤已购商品</option>
+                            <option>过滤近期浏览</option>
+                            <option>不过滤</option>
+                        </select>
+                    </div>
                 </div>
             </div>
         )
@@ -255,9 +348,46 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ selectedNode, onClose, onUpda
                         <option>CP_CROSS_SELL (复购专享 9折)</option>
                     </select>
                 </div>
+                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-md space-y-2">
+                    <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">面额</span>
+                        <span className="font-semibold text-slate-800">¥50.00</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">使用门槛</span>
+                        <span className="font-semibold text-slate-800">满 299 可用</span>
+                    </div>
+                     <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">有效期</span>
+                        <span className="font-semibold text-slate-800">领取后 7 天有效</span>
+                    </div>
+                 </div>
                 <div className="flex items-center gap-2">
                     <input type="checkbox" id="notify" className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" defaultChecked />
-                    <label htmlFor="notify" className="text-sm text-slate-600">发券后立即通知用户</label>
+                    <label htmlFor="notify" className="text-sm text-slate-600">发券后立即触发系统通知</label>
+                </div>
+             </div>
+        );
+    }
+
+    // Points
+    if (subtype === 'points') {
+        return (
+             <div className="space-y-4">
+                <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">变更类型</label>
+                    <div className="flex gap-2">
+                        <button className="flex-1 rounded border border-indigo-600 bg-indigo-50 py-1.5 text-xs font-medium text-indigo-700">增加积分</button>
+                        <button className="flex-1 rounded border border-slate-300 bg-white py-1.5 text-xs text-slate-600 hover:bg-slate-50">扣除积分</button>
+                    </div>
+                </div>
+                <div>
+                     <label className="block text-xs font-medium text-slate-500 mb-1">积分数量</label>
+                     <input type="number" defaultValue={100} className="w-full rounded-md border border-slate-300 p-2 text-sm bg-white text-slate-900 focus:ring-indigo-500 focus:border-indigo-500" />
+                </div>
+                <div>
+                     <label className="block text-xs font-medium text-slate-500 mb-1">变更原因备注</label>
+                     <input type="text" placeholder="例如：营销活动奖励" className="w-full rounded-md border border-slate-300 p-2 text-sm bg-white text-slate-900 focus:ring-indigo-500 focus:border-indigo-500" />
                 </div>
              </div>
         );
@@ -278,10 +408,19 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ selectedNode, onClose, onUpda
                     <label className="block text-xs font-medium text-slate-500 mb-1">标签名称</label>
                      <select className="w-full rounded-md border border-slate-300 p-2 text-sm bg-white text-slate-900 focus:ring-indigo-500 focus:border-indigo-500">
                         <option>高价值用户 (High LTV)</option>
-                        <option>价格敏感</option>
-                        <option>母婴人群</option>
-                        <option>即将流失</option>
-                        <option>生日月用户</option>
+                        <option>价格敏感 (Price Sensitive)</option>
+                        <option>母婴人群 (Mom & Baby)</option>
+                        <option>即将流失 (Churn Risk)</option>
+                        <option>生日月用户 (Birthday Month)</option>
+                    </select>
+                </div>
+                 <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">标签有效期</label>
+                     <select className="w-full rounded-md border border-slate-300 p-2 text-sm bg-white text-slate-900 focus:ring-indigo-500 focus:border-indigo-500">
+                        <option>永久有效</option>
+                        <option>30天</option>
+                        <option>90天</option>
+                        <option>1年</option>
                     </select>
                 </div>
             </div>
@@ -296,7 +435,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ selectedNode, onClose, onUpda
                     <label className="block text-xs font-medium text-slate-500 mb-1">触达渠道</label>
                     <div className="grid grid-cols-2 gap-2">
                         {['app_push', 'sms', 'email', 'wechat'].map(ch => (
-                             <button key={ch} className={`rounded border px-3 py-2 text-xs font-medium capitalize
+                             <button key={ch} className={`rounded border px-3 py-2 text-xs font-medium capitalize transition-all
                                 ${subtype === ch ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600 bg-white hover:bg-slate-50'}
                              `}>
                                  {ch.replace('_', ' ')}
@@ -304,8 +443,27 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ selectedNode, onClose, onUpda
                         ))}
                     </div>
                 </div>
+
+                {subtype === 'sms' && (
+                     <div>
+                        <label className="block text-xs font-medium text-slate-500 mb-1">短信签名</label>
+                        <select className="w-full rounded-md border border-slate-300 p-2 text-sm bg-white text-slate-900">
+                            <option>【OmniShop】</option>
+                            <option>【会员中心】</option>
+                            <option>【活动通知】</option>
+                        </select>
+                    </div>
+                )}
+                
+                {subtype === 'email' && (
+                     <div>
+                        <label className="block text-xs font-medium text-slate-500 mb-1">邮件标题</label>
+                        <input type="text" placeholder="请输入引人注目的标题" className="w-full rounded-md border border-slate-300 p-2 text-sm bg-white text-slate-900" />
+                    </div>
+                )}
+
                 <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1">消息模板内容</label>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">消息内容</label>
                     <textarea 
                         className="w-full h-24 rounded-md border border-slate-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white text-slate-900 placeholder:text-slate-400" 
                         placeholder="请输入消息内容..."
@@ -344,6 +502,12 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ selectedNode, onClose, onUpda
       case NodeType.DELAY:
         return (
           <div className="space-y-4">
+             {/* Type Switcher */}
+             <div className="flex bg-slate-100 p-1 rounded-lg">
+                <button className="flex-1 py-1.5 text-xs font-medium rounded-md bg-white text-indigo-700 shadow-sm">相对时间</button>
+                <button className="flex-1 py-1.5 text-xs font-medium rounded-md text-slate-500 hover:text-slate-700">绝对时间</button>
+             </div>
+
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">等待时长</label>
               <div className="flex gap-2">
@@ -352,16 +516,22 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ selectedNode, onClose, onUpda
                   <option>分钟</option>
                   <option>小时</option>
                   <option>天</option>
+                  <option>周</option>
                 </select>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-                <input type="checkbox" id="exclude-weekend" className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
-                <label htmlFor="exclude-weekend" className="text-sm text-slate-600">跳过周末</label>
-            </div>
-            <div className="flex items-center gap-2">
-                <input type="checkbox" id="active-hours" className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" defaultChecked />
-                <label htmlFor="active-hours" className="text-sm text-slate-600">仅在活跃时段 (9:00 - 21:00)</label>
+            
+            <div className="border-t border-slate-100 pt-2 space-y-2">
+                <div className="flex items-center gap-2">
+                    <input type="checkbox" id="exclude-weekend" className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                    <label htmlFor="exclude-weekend" className="text-xs text-slate-600">跳过周末 (周六、周日)</label>
+                </div>
+                <div className="flex items-center gap-2">
+                    <input type="checkbox" id="active-hours" className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" defaultChecked />
+                    <label htmlFor="active-hours" className="text-xs text-slate-600">仅在活跃时段发送 (9:00 - 21:00)</label>
+                </div>
+                {/* Mock description for active hours */}
+                 <p className="text-[10px] text-slate-400 pl-6">非活跃时段到达的用户将等待至次日 9:00 继续流程。</p>
             </div>
           </div>
         );
@@ -371,36 +541,47 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ selectedNode, onClose, onUpda
              <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">触发事件类型</label>
                 <select className="w-full rounded-md border border-slate-300 p-2 text-sm bg-white text-slate-900 focus:ring-indigo-500 focus:border-indigo-500" defaultValue={selectedNode.data.icon === 'Cake' ? 'birthday' : selectedNode.data.icon === 'PackageCheck' ? 'order_status' : 'default'}>
-                    <option value="default">选择事件...</option>
-                    <option value="birthday">用户生日 (Birthday)</option>
-                    <option value="order_status">订单状态变更 (Order)</option>
-                    <option value="payment">支付订单 (Payment)</option>
-                    <option value="cart">加入购物车 (Cart)</option>
-                    <option value="view">浏览商品 (View)</option>
+                    <option value="default">请选择事件...</option>
+                    <optgroup label="交易相关">
+                        <option value="payment">支付订单 (Order Paid)</option>
+                        <option value="refund">申请退款 (Order Refund)</option>
+                        <option value="order_status">订单状态变更 (Status Changed)</option>
+                    </optgroup>
+                    <optgroup label="行为相关">
+                        <option value="cart">加入购物车 (Add to Cart)</option>
+                        <option value="view">浏览商品 (View Product)</option>
+                        <option value="search">站内搜索 (Search)</option>
+                    </optgroup>
+                    <optgroup label="会员相关">
+                        <option value="register">注册成功 (Sign Up)</option>
+                        <option value="birthday">用户生日 (Birthday)</option>
+                        <option value="upgrade">等级升级 (Level Up)</option>
+                    </optgroup>
                 </select>
              </div>
              
-             {selectedNode.data.icon === 'PackageCheck' && (
-                 <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1">订单状态匹配</label>
-                    <select className="w-full rounded-md border border-slate-300 p-2 text-sm bg-white text-slate-900 focus:ring-indigo-500 focus:border-indigo-500">
-                        <option>已确认收货</option>
-                        <option>已发货</option>
-                        <option>已退款</option>
-                    </select>
-                 </div>
-             )}
-
+             {/* Dynamic Filter Section for Triggers */}
              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">高级过滤规则</label>
-                <div className="p-3 bg-slate-50 rounded border border-slate-200">
-                    <div className="flex items-center justify-between text-xs text-slate-600 mb-2">
-                        <span>属性: <strong>会员等级</strong></span>
-                        <span>等于</span>
-                        <span><strong>钻石会员</strong></span>
+                <label className="block text-xs font-medium text-slate-500 mb-1">触发限制规则</label>
+                <div className="space-y-2">
+                     <div className="p-2.5 bg-slate-50 rounded border border-slate-200 flex items-center justify-between group">
+                        <div className="text-xs text-slate-700">
+                            <span className="text-slate-500">过去 24h 内触发次数</span> <span className="font-semibold text-indigo-600"> &lt; 1 次</span>
+                        </div>
+                        <button className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Trash2 className="h-3 w-3" />
+                        </button>
                     </div>
-                    <button className="text-xs text-indigo-600 font-medium flex items-center gap-1">
-                        <Plus className="h-3 w-3" /> 添加过滤条件
+                     <div className="p-2.5 bg-slate-50 rounded border border-slate-200 flex items-center justify-between group">
+                        <div className="text-xs text-slate-700">
+                             <span className="text-slate-500">会员状态</span> <span className="font-semibold text-indigo-600"> 等于 正常</span>
+                        </div>
+                        <button className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Trash2 className="h-3 w-3" />
+                        </button>
+                    </div>
+                    <button className="w-full py-1.5 text-xs text-indigo-600 font-medium border border-dashed border-indigo-300 rounded hover:bg-indigo-50 flex items-center justify-center gap-1">
+                        <Plus className="h-3 w-3" /> 添加限制规则
                     </button>
                 </div>
              </div>
@@ -449,7 +630,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ selectedNode, onClose, onUpda
   )
 
   return (
-    <div className="flex h-full w-80 flex-col border-l border-slate-200 bg-white shadow-xl absolute right-0 top-0 z-50">
+    <div className="flex h-full w-80 flex-col border-l border-slate-200 bg-white shadow-xl absolute right-0 top-0 z-50 animate-in slide-in-from-right duration-200">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-100 p-4 bg-slate-50/50">
         <h3 className="font-bold text-slate-800">节点配置</h3>

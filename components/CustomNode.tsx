@@ -8,7 +8,7 @@ import {
   Gift, Database, TrendingDown, BellRing, MoreHorizontal,
   Sparkles, Tag, PlayCircle, Coins, MessageCircle, Mail,
   Gem, UserX, Cake, Megaphone, PackageCheck,
-  Copy, Trash2
+  Copy, Trash2, Flag
 } from 'lucide-react';
 import { NodeType, NodeData } from '../types';
 
@@ -19,7 +19,7 @@ const iconMap: Record<string, React.ElementType> = {
   Smartphone, Bell, UserPlus, Moon, FlaskConical, 
   Gift, Database, TrendingDown, BellRing,
   Sparkles, Tag, PlayCircle, Coins, MessageCircle, Mail,
-  Gem, UserX, Cake, Megaphone, PackageCheck
+  Gem, UserX, Cake, Megaphone, PackageCheck, Flag
 };
 
 const getNodeStyles = (type: NodeType, subtype?: string) => {
@@ -39,6 +39,8 @@ const getNodeStyles = (type: NodeType, subtype?: string) => {
       return 'border-violet-500 bg-violet-50 text-violet-900';
     case NodeType.DELAY:
       return 'border-amber-500 bg-amber-50 text-amber-900';
+    case NodeType.END:
+      return 'border-slate-400 bg-slate-100 text-slate-700';
     default:
       return 'border-slate-400 bg-slate-50 text-slate-900';
   }
@@ -46,9 +48,15 @@ const getNodeStyles = (type: NodeType, subtype?: string) => {
 
 const CustomNode = ({ id, data, selected }: NodeProps<NodeData>) => {
   const { setNodes, getNodes, deleteElements } = useReactFlow();
-  const Icon = data.icon ? iconMap[data.icon] : Zap;
+  
+  // Robust Icon Resolution:
+  // 1. Check if data.icon exists
+  // 2. Check if the icon exists in our map (and isn't undefined due to import failure)
+  // 3. Fallback to Zap
+  const Icon = (data.icon && iconMap[data.icon]) ? iconMap[data.icon] : Zap;
+  
   const isTrigger = data.type === NodeType.TRIGGER;
-  const isAI = data.subtype === 'ai_recommend';
+  const isEnd = data.type === NodeType.END;
 
   const onDuplicate = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -60,7 +68,6 @@ const CustomNode = ({ id, data, selected }: NodeProps<NodeData>) => {
         position: { x: node.position.x + 50, y: node.position.y + 50 },
         selected: true,
       };
-      // Deselect current
       setNodes((nds) => nds.map((n) => ({...n, selected: false})).concat(newNode));
     }
   };
@@ -71,116 +78,83 @@ const CustomNode = ({ id, data, selected }: NodeProps<NodeData>) => {
   };
 
   return (
-    <>
-      <NodeToolbar isVisible={selected} position={Position.Top} className="-translate-y-2">
-        <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
-          <button 
-            onClick={onDuplicate}
-            className="rounded p-1 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-            title="复制节点"
-          >
-            <Copy className="h-3.5 w-3.5" />
-          </button>
-          <div className="h-4 w-[1px] bg-slate-200"></div>
-          <button 
-            onClick={onDelete}
-            className="rounded p-1 text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors"
-            title="删除节点"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </NodeToolbar>
+    <div
+      className={`relative min-w-[180px] rounded-xl border shadow-sm transition-all hover:shadow-md ${selected ? 'ring-2 ring-indigo-500 ring-offset-2' : ''} ${getNodeStyles(data.type, data.subtype)}`}
+    >
+        {/* Node Toolbar for quick actions */}
+        <NodeToolbar isVisible={selected} position={Position.Top}>
+             <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+                 <button onClick={onDuplicate} className="rounded p-1 text-slate-500 hover:bg-slate-100 hover:text-indigo-600" title="复制">
+                     <Copy className="h-4 w-4" />
+                 </button>
+                 <button onClick={onDelete} className="rounded p-1 text-slate-500 hover:bg-slate-100 hover:text-red-600" title="删除">
+                     <Trash2 className="h-4 w-4" />
+                 </button>
+             </div>
+        </NodeToolbar>
 
-      <div
-        className={`relative min-w-[200px] rounded-xl border-2 px-4 py-3 shadow-sm transition-all duration-200
-          ${selected ? 'ring-2 ring-indigo-600 ring-offset-2' : ''}
-          ${getNodeStyles(data.type, data.subtype)}
-          hover:shadow-md
-        `}
-      >
-        {/* Inputs: Top and Left */}
-        {!isTrigger && (
-          <>
+      {/* Inputs (Targets): Top & Left */}
+      {!isTrigger && (
+        <>
             <Handle
-              type="target"
-              position={Position.Top}
-              id="top"
-              className="!h-3 !w-3 !bg-slate-400"
+            type="target"
+            position={Position.Top}
+            id="top"
+            className="!h-3 !w-3 !bg-slate-400 !border-2 !border-white hover:!bg-indigo-500 transition-colors"
             />
             <Handle
-              type="target"
-              position={Position.Left}
-              id="left"
-              className="!h-3 !w-3 !bg-slate-400"
+            type="target"
+            position={Position.Left}
+            id="left"
+            className="!h-3 !w-3 !bg-slate-400 !border-2 !border-white hover:!bg-indigo-500 transition-colors"
             />
-          </>
-        )}
+        </>
+      )}
 
-        <div className="flex items-center gap-3">
-          <div className={`flex h-10 w-10 items-center justify-center rounded-lg bg-white/80 shadow-sm border border-transparent`}>
-            {Icon && <Icon className={`h-5 w-5 opacity-90 ${isAI ? 'text-indigo-600 animate-pulse' : ''}`} />}
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
-                  {data.subtype ? data.subtype.replace('_', ' ') : data.type}
-              </div>
-              {isAI && <span className="text-[8px] bg-indigo-600 text-white px-1 rounded">AI</span>}
-            </div>
-            
-            <div className="font-bold leading-tight text-sm text-slate-900 mt-0.5">
-              {data.label}
-            </div>
-            {data.subLabel && (
-              <div className="text-xs text-slate-600 mt-1">
-                {data.subLabel}
-              </div>
-            )}
-          </div>
-          <button className="text-current opacity-40 hover:opacity-100 transition-opacity">
-            <MoreHorizontal className="h-4 w-4" />
-          </button>
+      <div className="flex items-center gap-3 p-3">
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/50 backdrop-blur-sm`}>
+          <Icon className="h-5 w-5" />
         </div>
-
-        {/* Analytics overlay if configured */}
-        {data.stats && (
-          <div className="mt-3 flex flex-col gap-2 border-t border-black/10 pt-2 text-xs">
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="text-slate-600 font-medium">活跃</span>
-                <span className="font-bold">{data.stats.active.toLocaleString()}</span>
-              </div>
-              <div className="flex flex-col text-right">
-                <span className="text-slate-600 font-medium">转化</span>
-                <span className="font-bold text-emerald-600">{data.stats.converted.toLocaleString()}</span>
-              </div>
-            </div>
-            {/* Visual Bar */}
-            <div className="h-1.5 w-full rounded-full bg-black/5 overflow-hidden">
-               <div 
-                 className="h-full bg-emerald-500 transition-all duration-1000" 
-                 style={{ width: `${(data.stats.converted / (data.stats.entered || 1)) * 100}%` }}
-               ></div>
-            </div>
-          </div>
-        )}
-
-        {/* Outputs: Bottom and Right */}
-        <Handle
-          type="source"
-          position={Position.Bottom}
-          id="bottom"
-          className="!h-3 !w-3 !bg-slate-400"
-        />
-        <Handle
-          type="source"
-          position={Position.Right}
-          id="right"
-          className="!h-3 !w-3 !bg-slate-400"
-        />
+        <div>
+          <div className="text-sm font-bold leading-tight">{data.label}</div>
+          {data.subLabel && <div className="mt-0.5 text-[10px] opacity-80">{data.subLabel}</div>}
+        </div>
       </div>
-    </>
+      
+      {/* Simulation Stats Overlay */}
+      {data.stats && (
+          <div className="border-t border-black/5 px-3 py-2 bg-white/30 backdrop-blur-[1px] rounded-b-xl">
+              <div className="flex items-center justify-between text-[10px] font-medium">
+                  <div className="flex flex-col">
+                      <span className="opacity-60 uppercase tracking-wider">进入</span>
+                      <span>{data.stats.entered.toLocaleString()}</span>
+                  </div>
+                  <div className="flex flex-col text-right">
+                       <span className="opacity-60 uppercase tracking-wider">转化</span>
+                       <span>{data.stats.converted.toLocaleString()}</span>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Outputs (Sources): Bottom & Right */}
+      {!isEnd && (
+        <>
+            <Handle
+            type="source"
+            position={Position.Bottom}
+            id="bottom"
+            className="!h-3 !w-3 !bg-slate-400 !border-2 !border-white hover:!bg-indigo-500 transition-colors"
+            />
+            <Handle
+            type="source"
+            position={Position.Right}
+            id="right"
+            className="!h-3 !w-3 !bg-slate-400 !border-2 !border-white hover:!bg-indigo-500 transition-colors"
+            />
+        </>
+      )}
+    </div>
   );
 };
 
